@@ -1,0 +1,38 @@
+[
+  {
+    "id": "1",
+    "userId": "__CURRENT_USER_ID__",
+    "type": "announcement",
+    "title": "New Announcement",
+    "message": "Welcome back! A new announcement has been posted.",
+    "createdAt": "2026-02-28T08:00:00.000Z",
+    "read": false
+  },
+  {
+    "id": "2",
+    "userId": "__CURRENT_USER_ID__",
+    "type": "song_program",
+    "title": "New Mass Program",
+    "message": "A new Mass program has been uploaded. Check it out!",
+    "createdAt": "2026-02-28T09:00:00.000Z",
+    "read": false
+  },
+  {
+    "id": "3",
+    "userId": "__CURRENT_USER_ID__",
+    "type": "contribution",
+    "title": "Contribution Approved",
+    "message": "Your pledge for Monthly Donation has been approved.",
+    "createdAt": "2026-02-28T09:30:00.000Z",
+    "read": false
+  },
+  {
+    "id": "4",
+    "userId": "__CURRENT_USER_ID__",
+    "type": "message",
+    "title": "New Message",
+    "message": "Hello, your request has been approved by admin.",
+    "createdAt": "2026-02-28T10:00:00.000Z",
+    "read": false
+  }
+]

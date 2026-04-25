@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/android-chrome-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/android-chrome-512x512.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ZucaPortal</title>
+
+    <style>
+      /* Import modern fonts */
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+
+      /* Reset and base styles */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        overflow: visible; /* or just remove it entirely */;
+      }
+
+      /* Splash container - fullscreen with your background image */
+      #splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: url('/src/assets/background2.webp') center/cover no-repeat;
+        color: rgb(27, 93, 159);
+        font-family: 'Inter', sans-serif;
+        text-align: center;
+        z-index: 9999;
+        overflow: hidden;
+      }
+
+      /* Blurred overlay with gradient - creates depth */
+      #splash::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.3) 100%);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        z-index: 1;
+      }
+
+      /* Animated floating particles */
+      .particle {
+        position: absolute;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+        pointer-events: none;
+        z-index: 2;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+      }
+
+      .particle-1 {
+        width: 300px;
+        height: 300px;
+        top: -150px;
+        right: -100px;
+        background: radial-gradient(circle, rgba(255,215,0,0.2) 0%, transparent 70%);
+        animation: float 20s infinite ease-in-out;
+      }
+
+      .particle-2 {
+        width: 400px;
+        height: 400px;
+        bottom: -200px;
+        left: -150px;
+        background: radial-gradient(circle, rgba(0,200,255,0.2) 0%, transparent 70%);
+        animation: float 25s infinite ease-in-out reverse;
+      }
+
+      .particle-3 {
+        width: 200px;
+        height: 200px;
+        top: 20%;
+        left: 10%;
+        background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%);
+        animation: float 15s infinite ease-in-out;
+      }
+
+      .particle-4 {
+        width: 150px;
+        height: 150px;
+        bottom: 30%;
+        right: 15%;
+        background: radial-gradient(circle, rgba(255,215,0,0.15) 0%, transparent 70%);
+        animation: float 18s infinite ease-in-out reverse;
+      }
+
+      /* Animated mesh gradient overlay */
+      .mesh-overlay {
+        position: absolute;
+        inset: 0;
+        background: 
+          radial-gradient(circle at 20% 50%, rgba(255,255,255,0.1) 0%, transparent 50%),
+          radial-gradient(circle at 80% 80%, rgba(255,255,255,0.1) 0%, transparent 50%),
+          radial-gradient(circle at 30% 30%, rgba(255,215,0,0.05) 0%, transparent 50%),
+          radial-gradient(circle at 70% 20%, rgba(0,255,208,0.05) 0%, transparent 50%);
+        z-index: 2;
+        animation: meshMove 30s infinite alternate;
+      }
+
+      /* Glass morphism card */
+      .glass-card {
+        position: relative;
+        z-index: 10;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-radius: 32px;
+        padding: 48px 64px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        animation: cardAppear 0.8s ease-out;
+        max-width: 90%;
+      }
+
+      /* Logo with glow and animation */
+      .logo-wrapper {
+        position: relative;
+        margin-bottom: 32px;
+      }
+
+      .logo-glow {
+        position: absolute;
+        inset: -20px;
+        background: radial-gradient(circle, rgba(255,255,255,0.5) 0%, transparent 70%);
+        filter: blur(30px);
+        opacity: 0.5;
+        animation: pulseGlow 3s infinite ease-in-out;
+      }
+
+      #splash img {
+        position: relative;
+        z-index: 12;
+        width: 160px;
+        height: auto;
+        filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3));
+        animation: logoFloat 4s infinite ease-in-out;
+      }
+
+      /* Welcome text container */
+      .welcome-container {
+        position: relative;
+        z-index: 12;
+        margin: 24px 0 16px;
+      }
+
+      #welcome {
+        font-size: 36px;
+        font-weight: 800;
+        background: linear-gradient(135deg, #fff, #ffd700, #fff);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: gradientText 3s linear infinite;
+        letter-spacing: 1px;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        white-space: nowrap;
+        min-height: 50px;
+      }
+
+      .cursor {
+        display: inline-block;
+        width: 4px;
+        height: 40px;
+        background: #fff;
+        margin-left: 8px;
+        animation: blink 1s infinite;
+        vertical-align: middle;
+      }
+
+      /* Tagline */
+      .tagline {
+        font-size: 16px;
+        font-weight: 300;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.9);
+        margin: 16px 0 8px;
+        animation: fadeInUp 0.8s 0.3s both;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      }
+
+      /* Loading bar */
+      .loading-container {
+        width: 200px;
+        margin: 24px auto 0;
+        position: relative;
+        z-index: 12;
+      }
+
+      .loading-bar {
+        width: 100%;
+        height: 4px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+
+      .loading-progress {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #ffd700, #00ffd0);
+        border-radius: 2px;
+        animation: loading 2s ease-in-out forwards;
+      }
+
+      .loading-text {
+        font-size: 12px;
+        color: rgba(255,255,255,0.8);
+        margin-top: 8px;
+        letter-spacing: 2px;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+      }
+
+      /* Bottom credits with gradient */
+      #credits {
+        position: absolute;
+        bottom: 30px;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        z-index: 12;
+        font-size: 14px;
+        font-weight: 400;
+        letter-spacing: 3px;
+        color: rgba(255,255,255,0.8);
+        text-transform: uppercase;
+        animation: fadeInUp 0.8s 0.6s both;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      }
+
+      #credits span {
+        background: linear-gradient(135deg, #ffd700, #00ffd0);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 600;
+        margin-left: 4px;
+      }
+
+      /* Floating shapes */
+      .shape {
+        position: absolute;
+        background: rgba(255,255,255,0.03);
+        border-radius: 50%;
+        z-index: 5;
+        animation: shapeFloat 20s infinite linear;
+      }
+
+      .shape-1 {
+        width: 600px;
+        height: 600px;
+        top: -300px;
+        right: -200px;
+        background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+        animation: rotateSlow 40s infinite linear;
+      }
+
+      .shape-2 {
+        width: 400px;
+        height: 400px;
+        bottom: -200px;
+        left: -150px;
+        background: radial-gradient(circle, rgba(255,215,0,0.05) 0%, transparent 70%);
+        animation: rotateSlow 30s infinite reverse;
+      }
+
+      /* Animations */
+      @keyframes float {
+        0%, 100% { transform: translate(0, 0) rotate(0deg); }
+        25% { transform: translate(30px, -30px) rotate(5deg); }
+        50% { transform: translate(50px, 20px) rotate(10deg); }
+        75% { transform: translate(-20px, 40px) rotate(5deg); }
+      }
+
+      @keyframes meshMove {
+        0% { transform: scale(1) rotate(0deg); }
+        100% { transform: scale(1.2) rotate(5deg); }
+      }
+
+      @keyframes cardAppear {
+        0% { opacity: 0; transform: scale(0.9) translateY(20px); }
+        100% { opacity: 1; transform: scale(1) translateY(0); }
+      }
+
+      @keyframes logoFloat {
+        0%, 100% { transform: translateY(0) rotate(0deg); }
+        50% { transform: translateY(-10px) rotate(2deg); }
+      }
+
+      @keyframes pulseGlow {
+        0%, 100% { opacity: 0.3; transform: scale(1); }
+        50% { opacity: 0.6; transform: scale(1.1); }
+      }
+
+      @keyframes gradientText {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 200% 50%; }
+      }
+
+      @keyframes blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0; }
+      }
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes loading {
+        0% { width: 0%; }
+        20% { width: 20%; }
+        40% { width: 40%; }
+        60% { width: 60%; }
+        80% { width: 80%; }
+        100% { width: 100%; }
+      }
+
+      @keyframes rotateSlow {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+
+      @keyframes shapeFloat {
+        0% { transform: translate(0, 0) scale(1); }
+        33% { transform: translate(2%, 3%) scale(1.1); }
+        66% { transform: translate(-3%, -2%) scale(0.9); }
+        100% { transform: translate(0, 0) scale(1); }
+      }
+
+      /* Responsive design */
+      @media (max-width: 768px) {
+        .glass-card {
+          padding: 32px 40px;
+        }
+        
+        #splash img {
+          width: 120px;
+        }
+        
+        #welcome {
+          font-size: 28px;
+        }
+        
+        .cursor {
+          height: 30px;
+        }
+        
+        .tagline {
+          font-size: 14px;
+          letter-spacing: 3px;
+        }
+        
+        #credits {
+          font-size: 12px;
+          bottom: 20px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .glass-card {
+          padding: 24px 20px;
+        }
+        
+        #splash img {
+          width: 100px;
+        }
+        
+        #welcome {
+          font-size: 24px;
+        }
+        
+        .cursor {
+          height: 26px;
+        }
+        
+        .tagline {
+          font-size: 12px;
+          letter-spacing: 2px;
+        }
+        
+        #credits {
+          font-size: 10px;
+          letter-spacing: 2px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Splash Screen for App Launch -->
+    <div id="splash">
+      <!-- Animated floating particles -->
+      <div class="particle particle-1"></div>
+      <div class="particle particle-2"></div>
+      <div class="particle particle-3"></div>
+      <div class="particle particle-4"></div>
+      
+      <!-- Mesh gradient overlay -->
+      <div class="mesh-overlay"></div>
+      
+      <!-- Decorative shapes -->
+      <div class="shape shape-1"></div>
+      <div class="shape shape-2"></div>
+
+      <!-- Main glass card content -->
+      <div class="glass-card">
+        <!-- Logo with glow effect -->
+        <div class="logo-wrapper">
+          <div class="logo-glow"></div>
+          <img src="/src/assets/zuca-logo.png" alt="ZUCA Logo" />
+        </div>
+
+        <!-- Welcome text with cursor -->
+        <div class="welcome-container">
+          <div id="welcome"></div>
+          <span class="cursor"></span>
+        </div>
+
+        <!-- Tagline -->
+        <div class="tagline">UNITY • FAITH • SERVICE</div>
+
+        <!-- Loading animation -->
+        <div class="loading-container">
+          <div class="loading-bar">
+            <div class="loading-progress"></div>
+          </div>
+          <div class="loading-text">LOADING EXPERIENCE</div>
+        </div>
+      </div>
+
+      <!-- Bottom credits -->
+      <div id="credits">
+        BUILT WITH <span>❤️</span> BY CHRISTECH WEBSYS
+      </div>
+    </div>
+
+    <!-- React Root -->
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+
+    <script>
+      const splash = document.getElementById('splash');
+
+      // Check if running as PWA / standalone app
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+      if (isPWA) {
+        // Full typing effect with multiple messages
+        const messages = [
+          "Welcome to ZUCA Portal",
+          "Connect with Faith",
+          "Build Community",
+          "Share & Grow"
+        ];
+        
+        const welcomeEl = document.getElementById("welcome");
+        let messageIndex = 0;
+        let charIndex = 0;
+        let isDeleting = false;
+        let typingSpeed = 100;
+
+        function typeEffect() {
+          const currentMessage = messages[messageIndex];
+          
+          if (isDeleting) {
+            welcomeEl.textContent = currentMessage.substring(0, charIndex - 1);
+            charIndex--;
+            typingSpeed = 50;
+          } else {
+            welcomeEl.textContent = currentMessage.substring(0, charIndex + 1);
+            charIndex++;
+            typingSpeed = 100;
+          }
+
+          if (!isDeleting && charIndex === currentMessage.length) {
+            isDeleting = true;
+            typingSpeed = 1000; // Pause at full message
+          }
+
+          if (isDeleting && charIndex === 0) {
+            isDeleting = false;
+            messageIndex = (messageIndex + 1) % messages.length;
+            typingSpeed = 200;
+          }
+
+          setTimeout(typeEffect, typingSpeed);
+        }
+
+        // Start typing effect
+        setTimeout(typeEffect, 500);
+
+        // Fade out splash after exactly 2 seconds
+        window.addEventListener('load', () => {
+          setTimeout(() => {
+            splash.style.transition = 'opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)';
+            splash.style.opacity = 0;
+            splash.style.transform = 'scale(1.1)';
+            setTimeout(() => splash.remove(), 800);
+          }, 6000); // Exactly 2 seconds
+        });
+
+      } else {
+        // Not a PWA: remove splash immediately in normal browser
+        if (splash) splash.remove();
+      }
+    </script>
+  </body>
+</html>

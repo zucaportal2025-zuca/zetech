@@ -1,0 +1,2 @@
+-- This migration is already applied to the database
+-- Keeping this file to satisfy Prisma's migration history

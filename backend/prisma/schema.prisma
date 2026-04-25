@@ -1,0 +1,796 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["interactiveTransactions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(uuid())
+  fullName          String
+  email             String    @unique
+  password          String
+  phone             String    @unique
+  phoneVerified     Boolean   @default(false)
+  role              String    @default("member") // "member", "admin" (for chairman)
+  profileImage      String?
+  createdAt         DateTime  @default(now())
+  lastActive        DateTime?
+  jumuiaId          String?
+  membership_number String?   @unique
+  resetCode         String?
+  resetCodeExpiry   DateTime?
+  isOnline          Boolean   @default(false)
+  lastSeen          DateTime?
+  lastResetAttempt  DateTime?
+  resetAttempts     Int       @default(0)
+
+  // Special role fields for ZUCA CA structure
+  specialRole      String? // "jumuia_leader", "choir_moderator", "secretary", "treasurer", or null
+  assignedJumuiaId String? // Which jumuia they lead (only for jumuia_leaders)
+  lastRoleLogin    DateTime? // Track last time they used special login
+
+  // Relations
+  blockedBy        BlockedUser[]     @relation("BlockedBy")
+  blockedUsers     BlockedUser[]     @relation("UserBlocks")
+  uploadedMedia    Media[]           @relation("UserMedia")
+  mediaComments    MediaComment[]
+  mediaDownloads   MediaDownload[]
+  mediaLikes       MediaLike[]
+  mediaShares      MediaShare[]
+  mediaViews       MediaView[]
+  mentions         Mention[]
+  messages         Message[]         @relation("UserMessages")
+  messageReactions MessageReaction[]
+  Notification     Notification[]
+  pinnedMessages   Pin[]
+  pledges          Pledge[]
+  pushSubscription PushSubscription?
+  readReceipts     ReadReceipt[]
+
+  // Relations
+  pledgeMessages PledgeMessage[]
+
+  // NEW: Relations for created content
+  announcementsCreated Announcement[] @relation("UserAnnouncements")
+  massProgramsCreated  MassProgram[]  @relation("UserMassPrograms")
+
+  // Jumuia relations with unique names
+  homeJumuia    Jumuia? @relation("UserHomeJumuia", fields: [jumuiaId], references: [id]) // Their home jumuia
+  leadingJumuia Jumuia? @relation("UserLeadingJumuia", fields: [assignedJumuiaId], references: [id]) // Jumuia they lead (if leader)
+
+  // NEW: Jumuia-specific chat relations
+  jumuiaChatMessages  JumuiaChatMessage[]
+  jumuiaChatReactions JumuiaChatReaction[]
+  jumuiaMentions      JumuiaMention[]
+  jumuiaReadReceipts  JumuiaReadReceipt[]
+
+  executiveAssignments Executive[] // Positions this user holds
+  executiveHistory     ExecutiveHistory[] // Historical positions this user held
+  // Game relations
+  sentGameInvites      GameInvite[]       @relation("SentInvites")
+  receivedInvites      GameInvite[]       @relation("ReceivedInvites")
+  gamesAsPlayer1       GameSession[]      @relation("Player1Games")
+  gamesAsPlayer2       GameSession[]      @relation("Player2Games")
+
+  //SCHEDULES RELATIONS
+  schedules      Schedule[]
+  scheduleDrafts ScheduleDraft[]
+
+  files File[] // Files uploaded by this user
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  category  String
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  // Track who created it
+  createdBy String?
+  author    User?   @relation("UserAnnouncements", fields: [createdBy], references: [id])
+
+  // Optional: which jumuia this announcement is for (null = all)
+  jumuiaId String?
+  jumuia   Jumuia? @relation(fields: [jumuiaId], references: [id])
+}
+
+model MassProgram {
+  id        String   @id @default(uuid())
+  date      DateTime
+  venue     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  // Which jumuia this mass program is for
+  jumuiaId String?
+  jumuia   Jumuia? @relation(fields: [jumuiaId], references: [id])
+
+  // Track who created it
+  createdBy String?
+  author    User?   @relation("UserMassPrograms", fields: [createdBy], references: [id])
+
+  songs        MassProgramSong[]
+  pendingSongs PendingSong[]
+}
+
+model Song {
+  id        String  @id @default(uuid())
+  title     String
+  composer  String?
+  lyrics    String? // Full song text with verses
+  reference String? // e.g., "AGJ 451/134", "NAGJ 188/52"
+
+  massPrograms MassProgramSong[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime? // Optional - won't break existing rows
+}
+
+model MassProgramSong {
+  id            String      @id @default(uuid())
+  massProgramId String
+  songId        String
+  type          String
+  massProgram   MassProgram @relation(fields: [massProgramId], references: [id], onDelete: Cascade)
+  song          Song        @relation(fields: [songId], references: [id])
+}
+
+model ContributionType {
+  id             String    @id @default(uuid())
+  title          String
+  description    String?
+  amountRequired Float
+  deadline       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  jumuiaId       String? // null = for all members, specific jumuia = for that jumuia only
+  jumuia         Jumuia?   @relation(fields: [jumuiaId], references: [id])
+  pledges        Pledge[]
+}
+
+model Pledge {
+  id                 String           @id @default(uuid())
+  userId             String
+  contributionTypeId String
+  pendingAmount      Float            @default(0)
+  amountPaid         Float            @default(0)
+  message            String?
+  status             String           @default("PENDING")
+  createdByAdmin     Boolean          @default(false)
+  approvedById       String?
+  approvedAt         DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  contributionType   ContributionType @relation(fields: [contributionTypeId], references: [id], onDelete: Cascade)
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pledgeMessages     PledgeMessage[]
+}
+
+model ChatRoom {
+  id             String    @id @default(uuid())
+  name           String    @unique
+  description    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  isActive       Boolean   @default(true)
+  lastMessageAt  DateTime?
+  messages       Message[]
+  pinnedMessages Pin[]
+}
+
+model Message {
+  id           String            @id @default(uuid())
+  content      String
+  userId       String
+  roomId       String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  replyToId    String?
+  attachments  Json?
+  files        File[]
+  isEdited     Boolean           @default(false)
+  isDeleted    Boolean           @default(false)
+  deletedAt    DateTime?
+  deletedBy    String?
+  mentions     Mention[]
+  replyTo      Message?          @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies      Message[]         @relation("MessageReplies")
+  room         ChatRoom          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user         User              @relation("UserMessages", fields: [userId], references: [id], onDelete: Cascade)
+  reactions    MessageReaction[]
+  pins         Pin[]
+  readReceipts ReadReceipt[]
+
+  @@index([userId])
+  @@index([roomId])
+  @@index([createdAt])
+  @@index([replyToId])
+  @@index([isDeleted])
+}
+
+model MessageReaction {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  reaction  String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, reaction])
+  @@index([messageId])
+  @@index([userId])
+}
+
+model Mention {
+  id        String    @id @default(uuid())
+  messageId String
+  userId    String
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  message   Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([userId, isRead])
+  @@index([messageId])
+}
+
+model ReadReceipt {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  readAt    DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([userId])
+  @@index([messageId])
+}
+
+model Pin {
+  id        String   @id @default(uuid())
+  messageId String
+  roomId    String
+  userId    String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  room      ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, messageId])
+  @@index([roomId])
+  @@index([messageId])
+}
+
+model BlockedUser {
+  id        String   @id @default(uuid())
+  userId    String
+  blockedId String
+  createdAt DateTime @default(now())
+  blocked   User     @relation("BlockedBy", fields: [blockedId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserBlocks", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, blockedId])
+  @@index([userId])
+  @@index([blockedId])
+}
+
+model Jumuia {
+  id           String   @id @default(uuid())
+  name         String   @unique // "ST. MICHAEL", "ST. BENEDICT", etc.
+  code         String   @unique // "stmichael", "stbenedict", etc. (for login)
+  whatsappLink String?  @map("whatsapp_link")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations with matching relation names
+  members User[] @relation("UserHomeJumuia") // All members whose home is this jumuia
+  leaders User[] @relation("UserLeadingJumuia") // Users who lead this jumuia
+
+  contributions ContributionType[] // Contributions specific to this jumuia
+  massPrograms  MassProgram[] // Mass programs for this jumuia's choir
+  announcements Announcement[] // Announcements for this jumuia
+
+  // NEW: Jumuia-specific chat and notifications
+  chatRooms     JumuiaChatRoom[]
+  notifications Notification[]
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // NEW: Jumuia-specific notification fields
+  jumuiaId String?
+  jumuia   Jumuia?   @relation(fields: [jumuiaId], references: [id])
+  data     Json? // Store additional data like {contributionId, messageId, etc.}
+  readAt   DateTime?
+}
+
+model PushSubscription {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  subscription String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model File {
+  id        String   @id @default(uuid())
+  name      String
+  type      String
+  size      Int
+  data      String   @db.Text // Base64 encoded file data
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messageId String?
+  message   Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([messageId])
+  @@map("files")
+}
+
+model Media {
+  id            String          @id @default(uuid())
+  title         String
+  description   String?
+  filename      String
+  originalName  String
+  mimeType      String
+  size          Int
+  sizeFormatted String
+  type          String
+  url           String
+  thumbnailUrl  String?
+  category      String          @default("uncategorized")
+  tags          String[]
+  isPublic      Boolean         @default(true)
+  isFeatured    Boolean         @default(false)
+  uploadedById  String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  uploadedBy    User            @relation("UserMedia", fields: [uploadedById], references: [id], onDelete: Cascade)
+  comments      MediaComment[]
+  downloads     MediaDownload[]
+  likes         MediaLike[]
+  shares        MediaShare[]
+  views         MediaView[]
+
+  @@index([type])
+  @@index([category])
+  @@index([createdAt])
+  @@index([uploadedById])
+}
+
+model MediaLike {
+  id        String   @id @default(uuid())
+  mediaId   String
+  userId    String
+  createdAt DateTime @default(now())
+  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([mediaId, userId])
+  @@index([mediaId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model MediaDownload {
+  id           String   @id @default(uuid())
+  mediaId      String
+  userId       String
+  downloadedAt DateTime @default(now())
+  media        Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([mediaId])
+  @@index([userId])
+  @@index([downloadedAt])
+}
+
+model MediaShare {
+  id       String   @id @default(uuid())
+  mediaId  String
+  userId   String
+  platform String   @default("direct")
+  sharedAt DateTime @default(now())
+  media    Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([mediaId])
+  @@index([userId])
+  @@index([sharedAt])
+}
+
+model MediaView {
+  id       String   @id @default(uuid())
+  mediaId  String
+  userId   String
+  viewedAt DateTime @default(now())
+  media    Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([mediaId, userId, viewedAt])
+  @@index([mediaId])
+  @@index([userId])
+  @@index([viewedAt])
+}
+
+model MediaComment {
+  id        String   @id @default(uuid())
+  content   String
+  mediaId   String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([mediaId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model PledgeMessage {
+  id        String   @id @default(uuid())
+  pledgeId  String
+  userId    String
+  content   String   @db.Text
+  isAdmin   Boolean  @default(false)
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  pledge Pledge @relation(fields: [pledgeId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([pledgeId])
+  @@index([createdAt])
+}
+
+// ==================== NEW JUMUIA CHAT MODELS ====================
+
+model JumuiaChatRoom {
+  id            String    @id @default(uuid())
+  name          String    @default("general")
+  description   String?
+  jumuiaId      String
+  jumuia        Jumuia    @relation(fields: [jumuiaId], references: [id], onDelete: Cascade)
+  createdBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastMessageAt DateTime?
+
+  messages JumuiaChatMessage[]
+
+  @@unique([jumuiaId, name])
+  @@index([jumuiaId])
+  @@map("jumuia_chat_rooms")
+}
+
+model JumuiaChatMessage {
+  id      String         @id @default(uuid())
+  content String         @db.Text
+  userId  String
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roomId  String
+  room    JumuiaChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  attachments Json?
+
+  replyToId String?
+  replyTo   JumuiaChatMessage?  @relation("JumuiaMessageReplies", fields: [replyToId], references: [id])
+  replies   JumuiaChatMessage[] @relation("JumuiaMessageReplies")
+
+  isEdited  Boolean   @default(false)
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  replyCount    Int   @default(0)
+  reactionCount Json?
+
+  reactions    JumuiaChatReaction[]
+  mentions     JumuiaMention[]
+  readReceipts JumuiaReadReceipt[]
+
+  @@index([roomId, createdAt])
+  @@index([userId])
+  @@index([replyToId])
+  @@index([isDeleted])
+  @@map("jumuia_chat_messages")
+}
+
+model JumuiaChatReaction {
+  id        String            @id @default(uuid())
+  messageId String
+  message   JumuiaChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reaction  String
+  createdAt DateTime          @default(now())
+
+  @@unique([messageId, userId, reaction])
+  @@index([messageId])
+  @@index([userId])
+  @@map("jumuia_chat_reactions")
+}
+
+model JumuiaMention {
+  id        String            @id @default(uuid())
+  messageId String
+  message   JumuiaChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt    DateTime?
+  createdAt DateTime          @default(now())
+
+  @@unique([messageId, userId])
+  @@index([userId, readAt])
+  @@map("jumuia_mentions")
+}
+
+model JumuiaReadReceipt {
+  id        String            @id @default(uuid())
+  messageId String
+  message   JumuiaChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt    DateTime          @default(now())
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
+  @@map("jumuia_read_receipts")
+}
+
+model PendingSong {
+  id        String   @id @default(uuid())
+  title     String
+  type      String?
+  programId String?
+  createdAt DateTime @default(now())
+  status    String   @default("pending")
+
+  program MassProgram? @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model LiturgicalDay {
+  id                  Int      @id @default(autoincrement())
+  date                DateTime @unique(map: "liturgical_day_date_unique") // Added map parameter
+  season              String // advent, christmas, lent, easter, ordinary
+  seasonName          String // "Advent", "Christmas Time", etc.
+  celebration         String // "Sunday of the Word of God", etc.
+  celebrationType     String // solemnity, feast, memorial, optional memorial, weekday
+  liturgicalColor     String // green, white, purple, red, rose
+  rank                String // "Solemnity", "Feast", "Memorial", etc.
+  yearCycle           String? // A, B, or C for Sunday cycle
+  weekdayCycle        String? // I or II for weekday cycle
+  weekNumber          Int? // Week of the season
+  holyDayOfObligation Boolean  @default(false)
+
+  // Optional: Store readings
+  readings Json? // Store as JSON array
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([date], name: "liturgical_day_date_unique") // Added name parameter
+  @@map("liturgical_days")
+}
+
+// ==================== EXECUTIVE MANAGEMENT SYSTEM ====================
+
+model ExecutivePosition {
+  id          String   @id @default(uuid())
+  title       String   @unique
+  level       Int // 1=Highest (Chairperson), 10=Lowest
+  category    String // leadership, choir, jumuia, media, voice
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  executives Executive[] // Current executives in this position
+  history    ExecutiveHistory[] // Historical assignments for this position
+}
+
+model Executive {
+  id         String   @id @default(uuid())
+  userId     String
+  positionId String
+  assignedBy String // Admin ID who assigned
+  assignedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  isActive   Boolean  @default(true)
+
+  // Custom contact info (if different from user's default)
+  customPhone String?
+  customEmail String?
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position ExecutivePosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, positionId])
+  @@index([userId])
+  @@index([positionId])
+  @@index([isActive])
+}
+
+model ExecutiveHistory {
+  id         String    @id @default(uuid())
+  userId     String
+  positionId String
+  assignedBy String
+  assignedAt DateTime
+  removedAt  DateTime?
+  removedBy  String?
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  position ExecutivePosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([positionId])
+  @@index([removedAt])
+}
+
+model GameSession {
+  id          String   @id @default(uuid())
+  gameType    String // 'tictactoe', 'snake', etc.
+  player1Id   String
+  player2Id   String?
+  status      String   @default("waiting") // waiting, active, completed, cancelled
+  currentTurn String? // player id whose turn it is
+  gameState   Json? // board state, scores, etc.
+  winner      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  player1 User  @relation("Player1Games", fields: [player1Id], references: [id])
+  player2 User? @relation("Player2Games", fields: [player2Id], references: [id])
+}
+
+model GameInvite {
+  id         String   @id @default(uuid())
+  fromUserId String
+  toUserId   String
+  gameType   String
+  sessionId  String?
+  status     String   @default("pending") // pending, accepted, declined, cancelled
+  createdAt  DateTime @default(now())
+
+  fromUser User @relation("SentInvites", fields: [fromUserId], references: [id])
+  toUser   User @relation("ReceivedInvites", fields: [toUserId], references: [id])
+}
+
+// ==================== SCHEDULE MANAGEMENT SYSTEM ====================
+
+model Schedule {
+  id          String    @id @default(uuid())
+  title       String
+  content     String    @db.Text
+  description String?   @db.Text
+  startDate   DateTime? @map("start_date")
+  endDate     DateTime? @map("end_date")
+  isActive    Boolean   @default(true) @map("is_active")
+  isPublished Boolean   @default(false) @map("is_published")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdBy   String    @map("created_by")
+
+  //STRUCTURED DATA FIELDS
+  sections        Json?   @map("sections")
+  generalPoints   Json?   @map("general_points")
+  additionalNotes String? @map("additional_notes") @db.Text
+  semesterPeriod  Json?   @map("semester_period")
+
+  creator     User                 @relation(fields: [createdBy], references: [id])
+  events      ScheduleEvent[]
+  attachments ScheduleAttachment[]
+
+  // opposite relation for ScheduledNotification
+  notificationSchedules ScheduledNotification[]
+
+  @@map("Schedule")
+}
+
+model ScheduleEvent {
+  id           String   @id @default(uuid())
+  scheduleId   String   @map("schedule_id")
+  title        String
+  description  String?  @db.Text
+  eventDate    DateTime @map("event_date")
+  eventTime    String?  @map("event_time")
+  location     String?
+  groupName    String?  @map("group_name")
+  reminderDays Int[]    @default([7, 1, 0]) @map("reminder_days")
+  isNotified   Boolean  @default(false) @map("is_notified")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  schedule              Schedule                @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  ScheduledNotification ScheduledNotification[]
+
+  @@map("ScheduleEvent")
+}
+
+model ScheduleAttachment {
+  id         String   @id @default(uuid())
+  scheduleId String   @map("schedule_id")
+  fileName   String   @map("file_name")
+  fileUrl    String   @map("file_url")
+  fileType   String   @map("file_type")
+  fileSize   Int?     @map("file_size")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@map("ScheduleAttachment")
+}
+
+model ScheduleDraft {
+  id          String   @id @default(uuid())
+  title       String
+  content     String   @db.Text
+  description String?  @db.Text
+  formData    Json     @map("form_data")
+  freeContent String?  @map("free_content") @db.Text
+  activeTab   String   @default("structured") @map("active_tab")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdBy   String   @map("created_by")
+
+  creator User @relation(fields: [createdBy], references: [id])
+
+  @@map("schedule_drafts")
+}
+
+// ==================== SCHEDULE NOTIFICATION SYSTEM ====================
+
+model ScheduledNotification {
+  id          String    @id @default(uuid())
+  eventId     String    @map("event_id")
+  scheduleId  String    @map("schedule_id")
+  title       String
+  message     String    @db.Text
+  notifyAt    DateTime  @map("notify_at")
+  priority    String    @default("normal") // normal, high, urgent, critical
+  isSent      Boolean   @default(false) @map("is_sent")
+  sentAt      DateTime? @map("sent_at")
+  targetGroup String?   @map("target_group")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  event    ScheduleEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  schedule Schedule      @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([scheduleId])
+  @@index([notifyAt])
+  @@index([isSent])
+  @@index([priority])
+  @@map("scheduled_notifications")
+}
